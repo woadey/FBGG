@@ -1,10 +1,11 @@
 import time
-
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 
 # Configure ChromeDriver
 options = Options()
@@ -63,10 +64,12 @@ def login():
         driver.get("https://facebook.com")
         print("Please login normally through facebook." + line_break)
         WebDriverWait(driver, 300).until(
-            lambda bs: bs.find_element_by_css_selector('a[aria-current="page"]'))
+            lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
+        print("Login Successful" + line_break)
+        question_prompt("IMPORTANT : Confirm you are using the older version of Facebook [y/n]: ")
         print("Please navigate to the group you would like to scrape." + line_break)
         WebDriverWait(driver, 300).until(EC.url_contains("groups"))
-        question_prompt("Is this the group you wish to scrape? ")
+        question_prompt("Is this the group you wish to scrape? [y/n] : ")
     except Exception as ex:
         raise Exception(
             "ERROR LOGGING IN : " + str(ex)
@@ -77,14 +80,22 @@ def calibrate():
     print("Scraping group info..." + line_break)
     try:
         driver.find_element_by_link_text("About").click()
+        WebDriverWait(driver, 10).until(EC.visibility_of('#pagelet_group_about'))
     except Exception as ex:
         raise Exception(
-            "Unable to switch to 'About' tab... " + str(ex)
+            "Unable to switch and load the 'About' tab... " + str(ex)
         )
     global url, member_count
     url = driver.current_url
-    temp = driver.find_element_by_css_selector("div > div > div > div > div > h2 > div > span > strong").text
-    member_count = int(temp.replace(",", ""))
+    soup = beautify_page()
+    headers = soup.select('span._2iem._50f7')
+    for head in headers:
+        if head.text.find("Members ·") == 0:
+            member_count = int(head.text.split()[-1].replace(",", ""))
+            print(member_count)
+            break
+    print("GROUP URL : " + url)
+    print("TOTAL MEMBERS : " + str(member_count))
 
 
 def scrape_members():
@@ -95,15 +106,9 @@ def scrape_members():
         raise Exception(
             "Unable to switch to 'Members' tab... " + str(ex)
         )
-    scroll_to_element(
-        '#mount_0_0 > div > div > div.rq0escxv.l9j0dhe7.du4w35lb > div.rq0escxv.l9j0dhe7.du4w35lb > div > div > div.j83'
-        'agx80.cbu4d94t.d6urw2fd.dp1hu0rb.l9j0dhe7.du4w35lb > div > div.rq0escxv.l9j0dhe7.du4w35lb.j83agx80.cbu4d94t.d2'
-        'edcug0.rj1gh0hx.buofh1pr.g5gj957u.hpfvmrgz.dp1hu0rb > div > div > div.d2edcug0.cbu4d94t.j83agx80.bp9cbjyn > di'
-        'v > div > div > div > div > div > div > div:nth-child(2) > div:nth-child(13) > div > div > div > div.k4urcfbm '
-        '> div.lzcic4wl.afxn4irw.r8dsh44q.ee40wjg4.skuavjfj.ku44ohm1.g6srhlxm.lszeityy.n1l5q3vz.cxmmr5t8.n851cfcs.hcuky'
-        'x3x.ue3kfks5.pw54ja7n.uo3d90p7.l82x9zwi.k4urcfbm.p1ueia1e'
-    )
+    scroll_to_element('div.mam> div > a[id][rel="async"]')
     print("Scraping all members...")
+    soup = beautify_page()
     # TODO scrape members names and urls
 
 
@@ -115,30 +120,32 @@ def scrape_group_content():
         raise Exception(
             "Unable to switch to 'Discussion tab... " + str(ex)
         )
-    scroll_to_element(
-        '#mount_0_0 > div > div > div.rq0escxv.l9j0dhe7.du4w35lb > div.rq0escxv.l9j0dhe7.du4w35lb > div > div > div.j83'
-        'agx80.cbu4d94t.d6urw2fd.dp1hu0rb.l9j0dhe7.du4w35lb > div > div.rq0escxv.l9j0dhe7.du4w35lb.j83agx80.cbu4d94t.d2'
-        'edcug0.rj1gh0hx.buofh1pr.g5gj957u.hpfvmrgz.dp1hu0rb > div > div > div.d2edcug0.cbu4d94t.j83agx80.bp9cbjyn > di'
-        'v > div > div > div.rq0escxv.l9j0dhe7.du4w35lb.qmfd67dx.gile2uim.buofh1pr.g5gj957u.hpfvmrgz.aov4n071.oi9244e8.'
-        'bi6gxh9e.h676nmdw.aghb5jc5 > div:nth-child(3) > div.rek2kq2y > div > div:nth-child(2) > div'
-    )
+    scroll_to_element('#pagelet_group_pager > div > div[id*="u_fetchstream_"]')
     print("Scraping all group content...")
+    soup = beautify_page()
     # TODO scrape posts and comments
 
 
-def scroll_to_element(selector):
+def beautify_page():
+    return BeautifulSoup(driver.page_source, "html.parser")
+
+
+def scroll_to_element(loading_selector):
     print("~~SCROLLING~~")
     time.sleep(3)
     while True:
-        loader = driver.find_element_by_css_selector(selector)
-        if loader is not None:
-            try:
-                driver.execute_script("arguments[0].scrollIntoView();", loader)
-            except Exception as ex:
-                raise Exception("Error scrolling : " + str(ex))
-        else:
-            print("Done Scrolling." + line_break)
+        try:
+            loader = driver.find_element_by_css_selector(loading_selector)
+            driver.execute_script("arguments[0].scrollIntoView();", loader)
+            print("scrolled")
+            WebDriverWait(driver, 10).until(EC.invisibility_of_element(loader))
+        except NoSuchElementException:
+            print("Done Scrolling.")
             break
+        except Exception as ex:
+            raise Exception(
+                "Error scrolling to element : " + str(ex)
+            )
 
 
 def question_prompt(question):
@@ -147,9 +154,10 @@ def question_prompt(question):
     answer = input(question)
     if answer in yes:
         print(line_break)
-        return True
+        return
     elif answer in no:
-        return False
+        print("Please make necessary changes to ensure a 'Yes' answer.")
+        question_prompt(question)
     else:
         print("Please respond with a 'Yes' or 'No'.")
         question_prompt(question)
