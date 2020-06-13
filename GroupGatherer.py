@@ -6,12 +6,42 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 
 # Configure ChromeDriver
 options = Options()
-# options.add_argument('--headless')
-# options.add_argument('--disable-gpu')
-options.add_argument('--disable-notifications')
+# options.add_argument("--headless")
+# options.add_argument("--blink-settings=imagesEnabled=false")
+options.add_argument("--disable-gpu")
+options.add_argument("--disable-notifications")
+options.add_argument("--disable-extensions")
+options.add_argument("--disable-3d-apis")
+options.add_argument("--disable-accelerated-jpeg-decoding")
+options.add_argument("--disable-2d-canvas-clip-aa")
+options.add_argument("--disable-accelerated-2d-canvas")
+options.add_argument("--disable-accelerated-mjpeg-decode")
+options.add_argument("--disable-accelerated-video-decode")
+options.add_argument("--disable-avfoundation-overlays")
+options.add_argument("--ignore-certificate-errors")
+options.add_argument("--disable-canvas-aa")
+options.add_argument("--disable-checker-imaging")
+options.add_argument("--disable-composited-antialiasing")
+options.add_argument("--disable-display-color-calibration")
+options.add_argument("--disable-display-list-2d-canvas")
+options.add_argument("--disable-flash-3d")
+options.add_argument("--disable-flash-stage3d")
+options.add_argument("--disable-gpu-vsync")
+options.add_argument("--disable-software-rasterizer")
+options.add_argument("--disable-sync")
+# options.add_argument("--disable-threaded-compositing")
+options.add_argument("--disable-threaded-scrolling")
+options.add_argument("--disable-webgl")
+options.add_argument("--disable-webgl-image-chromium")
+options.add_argument("--num-raster-threads=1")
+options.add_argument("--disable-logging")
+# options.add_argument("--incognito")
+options.add_argument("--window-size=1024,768")
+options.add_argument("--log-level=3")
 driver = webdriver.Chrome(options=options)
 
 # Variables
@@ -43,30 +73,42 @@ comment = {
 
 
 def main():
-    # Login
-    login()
+    try:
+        # Login
+        login()
 
-    # Calibrate Scraper
-    calibrate()
+        # Calibrate Scraper
+        calibrate()
 
-    # Scrape Members
-    scrape_members()
+        # Scrape Members
+        scrape_members()
 
-    # Scrape Content
-    scrape_group_content()
-
-    # Close Driver
-    driver.close()
+        # Scrape Content
+        scrape_group_content()
+    except Exception as ex:
+        raise Exception(
+            "Failed scraping : " + str(ex)
+        )
+    finally:
+        # Close Driver
+        driver.close()
 
 
 def login():
     try:
         driver.get("https://facebook.com")
         print("Please login normally through facebook." + line_break)
+        # Dev Code
+        ###
+        driver.find_element_by_css_selector("#email").send_keys("sean.smits@gmail.com")
+        time.sleep(.5)
+        driver.find_element_by_css_selector("#pass").send_keys("4P*bT6PE3Fx23RDU8c2Jd5^pc")
+        time.sleep(.5)
+        driver.find_element_by_css_selector("#loginbutton").click()
+        ###
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful" + line_break)
-        question_prompt("IMPORTANT : Confirm you are using the older version of Facebook [y/n]: ")
         print("Please navigate to the group you would like to scrape." + line_break)
         WebDriverWait(driver, 300).until(EC.url_contains("groups"))
         question_prompt("Is this the group you wish to scrape? [y/n] : ")
@@ -80,10 +122,9 @@ def calibrate():
     print("Scraping group info..." + line_break)
     try:
         driver.find_element_by_link_text("About").click()
-        WebDriverWait(driver, 10).until(EC.visibility_of('#pagelet_group_about'))
     except Exception as ex:
         raise Exception(
-            "Unable to switch and load the 'About' tab... " + str(ex)
+            "Unable to switch to the 'About' tab... " + str(ex)
         )
     global url, member_count
     url = driver.current_url
@@ -92,7 +133,6 @@ def calibrate():
     for head in headers:
         if head.text.find("Members ·") == 0:
             member_count = int(head.text.split()[-1].replace(",", ""))
-            print(member_count)
             break
     print("GROUP URL : " + url)
     print("TOTAL MEMBERS : " + str(member_count))
@@ -107,7 +147,7 @@ def scrape_members():
             "Unable to switch to 'Members' tab... " + str(ex)
         )
     scroll_to_element('div.mam> div > a[id][rel="async"]')
-    print("Scraping all members...")
+    print("Scraping all members..." + line_break)
     soup = beautify_page()
     # TODO scrape members names and urls
 
@@ -121,31 +161,28 @@ def scrape_group_content():
             "Unable to switch to 'Discussion tab... " + str(ex)
         )
     scroll_to_element('#pagelet_group_pager > div > div[id*="u_fetchstream_"]')
-    print("Scraping all group content...")
+    print("Scraping all group content..." + line_break)
     soup = beautify_page()
     # TODO scrape posts and comments
 
 
 def beautify_page():
+    time.sleep(3)
     return BeautifulSoup(driver.page_source, "html.parser")
 
 
+# TODO fix stale element reference
 def scroll_to_element(loading_selector):
     print("~~SCROLLING~~")
     time.sleep(3)
     while True:
         try:
+            WebDriverWait(driver, 10).until(lambda bs: bs.find_element_by_css_selector(loading_selector))
             loader = driver.find_element_by_css_selector(loading_selector)
             driver.execute_script("arguments[0].scrollIntoView();", loader)
-            print("scrolled")
-            WebDriverWait(driver, 10).until(EC.invisibility_of_element(loader))
-        except NoSuchElementException:
-            print("Done Scrolling.")
-            break
         except Exception as ex:
-            raise Exception(
-                "Error scrolling to element : " + str(ex)
-            )
+            print("Done Scrolling : " + str(ex))
+            break
 
 
 def question_prompt(question):
