@@ -51,11 +51,6 @@ member_count = -1
 all_members = []
 all_posts = []
 all_comments = []
-member = {
-    'MEMBER_NAME': None,
-    'MEMBER_URL': None,
-    'MEMBER_TYPE': None
-}
 post = {
     'POST_ID': None,
     'POST_URL': None,
@@ -77,14 +72,20 @@ def main():
         # Login
         login()
 
-        # Calibrate Scraper
-        calibrate()
+        # Crawl About
+        crawl_about()
+
+        # Crawl Members
+        # member_page = crawl_members()
+
+        # Crawl Content
+        discussion_page = crawl_discussion()
 
         # Scrape Members
-        scrape_members()
+        # scrape_members(member_page)
 
-        # Scrape Content
-        scrape_group_content()
+        # Scrape Discussion
+        scrape_discussion(discussion_page)
     except Exception as ex:
         raise Exception(
             "Failed scraping : " + str(ex)
@@ -98,14 +99,17 @@ def login():
     try:
         driver.get("https://facebook.com")
         print("Please login normally through facebook." + line_break)
+
         # Dev Code
         ###
+        driver.maximize_window()
         driver.find_element_by_css_selector("#email").send_keys("sean.smits@gmail.com")
         time.sleep(.5)
         driver.find_element_by_css_selector("#pass").send_keys("4P*bT6PE3Fx23RDU8c2Jd5^pc")
         time.sleep(.5)
         driver.find_element_by_css_selector("#loginbutton").click()
         ###
+
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful" + line_break)
@@ -118,14 +122,15 @@ def login():
         )
 
 
-def calibrate():
-    print("Scraping group info..." + line_break)
+def crawl_about():
+    print("Scraping group info...")
     try:
         driver.find_element_by_link_text("About").click()
     except Exception as ex:
         raise Exception(
             "Unable to switch to the 'About' tab... " + str(ex)
         )
+
     global url, member_count
     url = driver.current_url
     soup = beautify_page()
@@ -135,53 +140,96 @@ def calibrate():
             member_count = int(head.text.split()[-1].replace(",", ""))
             break
     print("GROUP URL : " + url)
-    print("TOTAL MEMBERS : " + str(member_count))
+    print("TOTAL MEMBERS : " + str(member_count) + line_break)
 
 
-def scrape_members():
-    print("Loading all members...")
+def crawl_members():
     try:
         driver.find_element_by_link_text("Members").click()
     except Exception as ex:
         raise Exception(
             "Unable to switch to 'Members' tab... " + str(ex)
         )
+
+    print("Loading all members...")
     scroll_to_element('div.mam> div > a[id][rel="async"]')
-    print("Scraping all members..." + line_break)
-    soup = beautify_page()
-    # TODO scrape members names and urls
+    print("Crawling all members...")
+    print("COMPLETED" + line_break)
+    return beautify_page()
 
 
-def scrape_group_content():
-    print("Loading all group content...")
+def scrape_members(page):
+    mem_container = page.select_one("#groupsMemberSection_all_members")
+    if mem_container is None:
+        mem_container = page.select_one("#groupsMemberSection_recently_joined")
+    members_list = mem_container.select("div[class='clearfix _60rh _gse']")
+    print("MEMBERS SCRAPED : " + str(len(members_list)))
+    global member_count
+    print("SUCCESS RATE : " + str(int(len(members_list)/member_count*100)) + "%" + line_break)
+    for mem in members_list:
+        mem_name = mem.select_one("a[ajaxify]").get('title')
+        mem_url = mem.select_one("a[ajaxify]").get('href')
+        mem_type = mem.select_one("a[ajaxify*='badge_type=']")
+        if mem_type is None:
+            mem_type = "Member"
+        else:
+            mem_type = mem_type.text
+        member = {
+            'MEMBER_NAME': mem_name,
+            'MEMBER_URL': mem_url,
+            'MEMBER_TYPE': mem_type
+        }
+        global all_members
+        all_members.append(member)
+
+
+# TODO fix 'view all'
+def crawl_discussion():
     try:
         driver.find_element_by_link_text("Discussion").click()
     except Exception as ex:
         raise Exception(
             "Unable to switch to 'Discussion tab... " + str(ex)
         )
+
+    print("Loading all group content...")
     scroll_to_element('#pagelet_group_pager > div > div[id*="u_fetchstream_"]')
-    print("Scraping all group content..." + line_break)
+    print("Scraping all group content...")
+
+    while True:
+        try:
+            view_more = driver.find_element_by_css_selector("a._4sxc._42ft")
+            driver.execute_script("arguments[0].scrollIntoView(true);", view_more)
+            view_more.click()
+            print("Viewed More")
+        except Exception as ex:
+            print("Completed Expanding : " + str(ex).strip())
+            break
     soup = beautify_page()
-    # TODO scrape posts and comments
+    check_posts = soup.select("div[data-testid='post_message']")
+    print("POSTS SCRAPED : " + str(len(check_posts)) + line_break)
+    return soup
+
+
+# TODO scrape posts and comments
+def scrape_discussion(page):
+    pass
 
 
 def beautify_page():
     time.sleep(3)
-    return BeautifulSoup(driver.page_source, "html.parser")
+    return BeautifulSoup(driver.page_source, "lxml")
 
 
-# TODO fix stale element reference
 def scroll_to_element(loading_selector):
     print("~~SCROLLING~~")
     time.sleep(3)
     while True:
         try:
-            WebDriverWait(driver, 10).until(lambda bs: bs.find_element_by_css_selector(loading_selector))
-            loader = driver.find_element_by_css_selector(loading_selector)
-            driver.execute_script("arguments[0].scrollIntoView();", loader)
+            driver.execute_script("window.scrollBy(0,document.body.scrollHeight)")
+            WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, loading_selector)))
         except Exception as ex:
-            print("Done Scrolling : " + str(ex))
+            print("Done Scrolling : " + str(ex).strip())
             break
 
 
