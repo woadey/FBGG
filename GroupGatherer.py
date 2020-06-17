@@ -5,8 +5,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import *
 
 # Configure ChromeDriver
 options = Options()
@@ -187,7 +186,7 @@ def scrape_members(page):
             all_members.append(member)
         except Exception as ex:
             raise Exception(
-                "Error adding member : " + str(ex) + "\n\n\n\n\n" + mem.prettify()
+                "ERROR ADDING MEMBER : " + str(ex) + "\n\n\n\n\n" + mem.prettify()
             )
 
 
@@ -229,9 +228,14 @@ def scroll(tab, loading_selector):
             driver.execute_script("window.scrollBy(0,document.body.scrollHeight)")
             if check_if_bottomed(loading_selector):
                 break
-        except Exception as ex:
-            print("Error when scrolling : " + str(ex).strip())
+        except TimeoutException:
+            # Catches bottom in case 'check_if_bottomed()' fails
+            print("CHECK_IF_BOTTOMED() FAILED, but this caught it :)")
             break
+        except Exception as ex:
+            raise Exception(
+                "ERROR SCROLLING : " + str(ex).strip()
+            )
 
 
 def check_if_bottomed(loading_selector):
@@ -242,7 +246,7 @@ def check_if_bottomed(loading_selector):
         return True
     except Exception as ex:
         raise Exception(
-            "Error checking for bottom of page : " + str(ex)
+            "ERROR CHECKING BOTTOM OF PAGE : " + str(ex)
         )
 
 
@@ -252,10 +256,11 @@ def wait_to_load(tab):
             WebDriverWait(driver, 10).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.morePager > div > span > img')))
         except TimeoutException:
+            # Catches if the
             pass
         except Exception as ex:
             raise Exception(
-                "Error waiting to load page : " + str(ex)
+                "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
     elif tab is Tab.DISCUSSION:
         try:
@@ -265,12 +270,11 @@ def wait_to_load(tab):
             pass
         except Exception as ex:
             raise Exception(
-                "Error waiting to load page : " + str(ex)
+                "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
 
 
 def view_all():
-    print("++EXPANDING COMMENTS++")
     while True:
         try:
             wait_to_load(Tab.DISCUSSION)
@@ -278,12 +282,15 @@ def view_all():
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
             driver.execute_script("window.scrollBy(0,250)")
             view_more.click()
+        except StaleElementReferenceException:
+            pass
         except NoSuchElementException:
-            print("Completed Expanding")
+            # print("Completed Expanding")
             break
         except Exception as ex:
-            print("Error Expanding Comments : " + str(ex).strip())
-            break
+            raise Exception(
+                "Error Expanding Comments : " + str(ex).strip()
+            )
 
 
 def question_prompt(question):
