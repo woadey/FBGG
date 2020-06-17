@@ -11,9 +11,6 @@ from selenium.common.exceptions import *
 
 # Configure ChromeDriver
 options = Options()
-# options.add_argument("--headless")
-# options.add_argument("--blink-settings=imagesEnabled=false")
-# options.add_argument("--disable-threaded-compositing")
 options.add_argument("--disable-gpu")
 options.add_argument("--disable-notifications")
 options.add_argument("--disable-extensions")
@@ -41,7 +38,6 @@ options.add_argument("--disable-webgl-image-chromium")
 options.add_argument("--num-raster-threads=1")
 options.add_argument("--disable-logging")
 options.add_argument("--incognito")
-options.add_argument("--window-size=1024,768")
 options.add_argument("--log-level=3")
 driver = webdriver.Chrome(options=options)
 
@@ -89,19 +85,9 @@ def main():
 
 def login():
     try:
+        driver.maximize_window()
         driver.get("https://facebook.com")
         print("Please login normally through facebook." + line_break)
-
-        # TODO DEV CODE
-        ###
-        driver.maximize_window()
-        driver.find_element_by_css_selector("#email").send_keys("sean.smits@gmail.com")
-        time.sleep(.5)
-        driver.find_element_by_css_selector("#pass").send_keys("4P*bT6PE3Fx23RDU8c2Jd5^pc")
-        time.sleep(.5)
-        driver.find_element_by_css_selector("#loginbutton").click()
-        ###
-
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful" + line_break)
