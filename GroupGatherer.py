@@ -158,10 +158,11 @@ def crawl_members():
 
     print("Loading all members...")
     scroll(Tab.MEMBERS, 'div.mam> div > a[id][rel="async"]')
-    print("Crawling all members...")
-    print("COMPLETED" + line_break)
+    print("Scraping all members...")
     soup = beautify_page()
+    print("Saving all data...")
     save_html(Tab.MEMBERS, soup)
+    print("COMPLETED" + line_break)
 
 
 def crawl_discussion():
@@ -176,9 +177,15 @@ def crawl_discussion():
     scroll(Tab.DISCUSSION, '#pagelet_group_pager > div > div > div > div[data-testid="fbfeed_placeholder_story"]')
     print("Scraping all group content...")
     soup = beautify_page()
+    print("Saving all data...")
+    save_html(Tab.DISCUSSION, soup)
+    print("COMPLETED" + line_break)
+
+    # DEV CODE
+    ###
     check_posts = soup.select("div[data-testid='post_message']")
     print("POSTS SCRAPED : " + str(len(check_posts)) + line_break)
-    save_html(Tab.DISCUSSION, soup)
+    ###
 
 
 def beautify_page():
@@ -212,6 +219,7 @@ def check_if_bottomed(loading_selector):
         driver.find_element_by_css_selector(loading_selector)
         return False
     except NoSuchElementException:
+        print("~~COMPLETED~~")
         return True
     except Exception as ex:
         raise Exception(
@@ -222,7 +230,7 @@ def check_if_bottomed(loading_selector):
 def wait_to_load(tab):
     if tab is Tab.MEMBERS:
         try:
-            WebDriverWait(driver, 10).until(EC.invisibility_of_element(
+            WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.morePager > div > span > img')))
         except TimeoutException:
             # Catches bottom in case 'check_if_bottomed()' fails
@@ -233,7 +241,7 @@ def wait_to_load(tab):
             )
     elif tab is Tab.DISCUSSION:
         try:
-            WebDriverWait(driver, 10).until(EC.invisibility_of_element(
+            WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.async_saving > div[data-testid="fbfeed_placeholder_story"]')))
         except TimeoutException:
             # Catches bottom in case 'check_if_bottomed()' fails
@@ -268,7 +276,7 @@ def question_prompt(question):
     no = {'no', 'n'}
     answer = input(question)
     if answer in yes:
-        print(line_break)
+        print(line_break.strip())
         return
     elif answer in no:
         print("Please make necessary changes to ensure a 'Yes' answer.")
