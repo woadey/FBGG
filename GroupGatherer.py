@@ -132,8 +132,8 @@ def scrape_about():
             member_count = int(head.text.split()[-1].replace(",", ""))
             break
     group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
-    print("GROUP NAME : " + group_name.split('about')[0])
-    print("GROUP URL : " + url)
+    print("GROUP NAME : " + group_name)
+    print("GROUP URL : " + url.split("about")[0])
     print("TOTAL MEMBERS : " + str(member_count) + line_break)
     save_html(Tab.ABOUT, soup)
 
@@ -198,24 +198,17 @@ def scroll(tab, loading_selector):
             )
 
 
-# TODO might need fixing
 def check_if_bottomed(loading_selector):
-    flag = 0
-    value = False
-    while flag < 5:
-        try:
-            driver.find_element_by_css_selector(loading_selector)
-            value = False
-            break
-        except NoSuchElementException:
-            value = True
-            flag += 1
-        except Exception as ex:
-            raise Exception(
-                "ERROR CHECKING BOTTOM OF PAGE : " + str(ex)
-            )
-    print("~~COMPLETED~~")
-    return value
+    try:
+        driver.find_element_by_css_selector(loading_selector)
+        return False
+    except NoSuchElementException:
+        print("~~COMPLETED~~")
+        return True
+    except Exception as ex:
+        raise Exception(
+            "ERROR CHECKING BOTTOM OF PAGE : " + str(ex)
+        )
 
 
 def wait_to_load(tab):
@@ -251,6 +244,7 @@ def view_all():
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
             driver.execute_script("window.scrollBy(0,250)")
             view_more.click()
+            WebDriverWait(driver, 10).until(EC.invisibility_of_element(view_more))
         except StaleElementReferenceException:
             pass
         except NoSuchElementException:
