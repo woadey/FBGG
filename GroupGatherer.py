@@ -39,7 +39,9 @@ options.add_argument("--num-raster-threads=1")
 options.add_argument("--disable-logging")
 options.add_argument("--incognito")
 options.add_argument("--log-level=3")
-driver = webdriver.Chrome(options=options)
+with open("chromedriver_path.txt", "r") as file:
+    path = file.read()
+driver = webdriver.Chrome(executable_path=path, options=options)
 
 # Variables
 line_break = "\n-------------------------------------------------------------------------------------------------------"
