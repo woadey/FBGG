@@ -1,4 +1,5 @@
 import time
+import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -45,6 +46,7 @@ driver = webdriver.Chrome(options=options)
 
 # Variables
 line_break = "\n-------------------------------------------------------------------------------------------------------"
+group_name = "NoGroupNameAcquired"
 url = None
 member_count = -1
 all_members = []
@@ -67,6 +69,7 @@ comment = {
 
 
 class Tab:
+    ABOUT = 0
     MEMBERS = 1
     DISCUSSION = 2
 
@@ -79,19 +82,19 @@ def main():
     crawl_about()
 
     # Crawl Members
-    member_page = crawl_members()
+    crawl_members()
 
     # Crawl Content
-    discussion_page = crawl_discussion()
+    crawl_discussion()
 
     # Close Driver
     driver.close()
 
     # Scrape Members
-    scrape_members(member_page)
+    # scrape_members(member_page)
 
     # Scrape Discussion
-    scrape_discussion(discussion_page)
+    # scrape_discussion(discussion_page)
 
 
 def login():
@@ -130,7 +133,7 @@ def crawl_about():
             "Unable to switch to the 'About' tab... " + str(ex)
         )
 
-    global url, member_count
+    global group_name, url, member_count
     url = driver.current_url
     soup = beautify_page()
     headers = soup.select('span._2iem._50f7')
@@ -138,8 +141,11 @@ def crawl_about():
         if head.text.find("Members ·") == 0:
             member_count = int(head.text.split()[-1].replace(",", ""))
             break
+    group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
+    print("GROUP NAME : " + group_name)
     print("GROUP URL : " + url)
     print("TOTAL MEMBERS : " + str(member_count) + line_break)
+    save_html(Tab.ABOUT, soup)
 
 
 def crawl_members():
@@ -154,40 +160,8 @@ def crawl_members():
     scroll(Tab.MEMBERS, 'div.mam> div > a[id][rel="async"]')
     print("Crawling all members...")
     print("COMPLETED" + line_break)
-    return beautify_page()
-
-
-def scrape_members(page):
-    # TODO test 'or' vs #
-    mem_container = page.select_one("#groupsMemberSection_all_members") or page.select_one(
-        "#groupsMemberSection_recently_joined")
-    # if mem_container is None:
-    #     mem_container = page.select_one("#groupsMemberSection_recently_joined")
-
-    members_list = mem_container.select("div[class='clearfix _60rh _gse']")
-    print("MEMBERS SCRAPED : " + str(len(members_list)))
-    global member_count
-    print("SUCCESS RATE : " + str(int(len(members_list) / member_count * 100)) + "%" + line_break)
-    for mem in members_list:
-        try:
-            mem_name = mem.select_one("a[ajaxify]").get('title')
-            mem_url = mem.select_one("a[ajaxify]").get('href')
-            mem_type = mem.select_one("a[ajaxify*='badge_type=']")
-            if mem_type is None:
-                mem_type = "Member"
-            else:
-                mem_type = mem_type.text
-            member = {
-                'MEMBER_NAME': mem_name,
-                'MEMBER_URL': mem_url,
-                'MEMBER_TYPE': mem_type
-            }
-            global all_members
-            all_members.append(member)
-        except Exception as ex:
-            raise Exception(
-                "ERROR ADDING MEMBER : " + str(ex) + "\n\n\n\n\n" + mem.prettify()
-            )
+    soup = beautify_page()
+    save_html(Tab.MEMBERS, soup)
 
 
 def crawl_discussion():
@@ -204,12 +178,7 @@ def crawl_discussion():
     soup = beautify_page()
     check_posts = soup.select("div[data-testid='post_message']")
     print("POSTS SCRAPED : " + str(len(check_posts)) + line_break)
-    return soup
-
-
-# TODO scrape posts and comments
-def scrape_discussion(page):
-    pass
+    save_html(Tab.DISCUSSION, soup)
 
 
 def beautify_page():
@@ -256,7 +225,7 @@ def wait_to_load(tab):
             WebDriverWait(driver, 10).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.morePager > div > span > img')))
         except TimeoutException:
-            # Catches if the
+            # Catches bottom in case 'check_if_bottomed()' fails
             pass
         except Exception as ex:
             raise Exception(
@@ -267,6 +236,7 @@ def wait_to_load(tab):
             WebDriverWait(driver, 10).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.async_saving > div[data-testid="fbfeed_placeholder_story"]')))
         except TimeoutException:
+            # Catches bottom in case 'check_if_bottomed()' fails
             pass
         except Exception as ex:
             raise Exception(
@@ -306,6 +276,64 @@ def question_prompt(question):
     else:
         print("Please respond with a 'Yes' or 'No'.")
         question_prompt(question)
+
+
+def save_html(tab, soup):
+    if tab == Tab.ABOUT:
+        file_name = "AboutPage.html"
+    elif tab == Tab.MEMBERS:
+        file_name = "MembersPage.html"
+    else:
+        file_name = "DiscussionPage.html"
+
+    global group_name
+    current_dir = os.getcwd()
+    output_folder = current_dir + f"\\Output\\"
+    os.makedirs(os.path.dirname(output_folder), exist_ok=True)
+    folder_path = output_folder + f"{group_name}\\"
+    os.makedirs(os.path.dirname(folder_path), exist_ok=True)
+
+    file_path = folder_path + file_name
+    with open(file_path, "w", encoding='utf-8') as file:
+        file.write(str(soup))
+
+
+def scrape_members(page):
+    # TODO test 'or' vs #
+    mem_container = page.select_one("#groupsMemberSection_all_members") or page.select_one(
+        "#groupsMemberSection_recently_joined")
+    # if mem_container is None:
+    #     mem_container = page.select_one("#groupsMemberSection_recently_joined")
+
+    members_list = mem_container.select("div[class='clearfix _60rh _gse']")
+    print("MEMBERS SCRAPED : " + str(len(members_list)))
+    global member_count
+    print("SUCCESS RATE : " + str(int(len(members_list) / member_count * 100)) + "%" + line_break)
+    for mem in members_list:
+        try:
+            mem_name = mem.select_one("a[ajaxify]").get('title')
+            mem_url = mem.select_one("a[ajaxify]").get('href')
+            mem_type = mem.select_one("a[ajaxify*='badge_type=']")
+            if mem_type is None:
+                mem_type = "Member"
+            else:
+                mem_type = mem_type.text
+            member = {
+                'MEMBER_NAME': mem_name,
+                'MEMBER_URL': mem_url,
+                'MEMBER_TYPE': mem_type
+            }
+            global all_members
+            all_members.append(member)
+        except Exception as ex:
+            raise Exception(
+                "ERROR ADDING MEMBER : " + str(ex) + "\n\n\n\n\n" + mem.prettify()
+            )
+
+
+# TODO scrape posts and comments
+def scrape_discussion(page):
+    pass
 
 
 if __name__ == "__main__":
