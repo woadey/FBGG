@@ -106,6 +106,12 @@ def login():
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful" + line_break)
         print("Please navigate to the group you would like to scrape." + line_break)
+
+        # TODO DEV CODE
+        ###
+        # driver.get("https://www.facebook.com/groups/212594349235336/")
+        ###
+
         WebDriverWait(driver, 300).until(EC.url_contains("groups"))
         question_prompt("Is this the group you wish to scrape? [y/n] : ")
     except Exception as ex:
@@ -302,6 +308,10 @@ def open_html(tab):
         file_name = "DiscussionPage.html"
 
     global folder_path
+    # TODO DEV CODE
+    ###
+    # folder_path = "C:\\Users\\sean\\PycharmProjects\\Fun\\FBGG\\Output\\Indiana Bahá'í Summer School\\Page Content\\"
+    ###
     with open(folder_path + file_name, "r", encoding='utf-8') as file:
         contents = file.read()
         return BeautifulSoup(contents, 'lxml')
@@ -373,6 +383,17 @@ def parse_discussion():
                 post_img = post.select_one('img[class="scaledImageFitWidth img"]').get('src')
             except AttributeError:
                 post_img = None
+            try:
+                reacts = post.select('._1n9l')
+                post_reactions = 0
+                for react in reacts:
+                    post_reactions += int(react.get('aria-label').split()[0])
+            except AttributeError:
+                post_reactions = 0
+            try:
+                post_shares = int(post.select_one('._3rwx._42ft').text.split()[0])
+            except AttributeError:
+                post_shares = 0
 
             all_comments = []
             for com in post.select('div[aria-label*="Comment"]'):
@@ -409,7 +430,7 @@ def parse_discussion():
                     'COMMENT_TIME': comment_time
                 }
                 all_comments.append(comment)
-            # TODO add post_likes and post_shares
+
             post = {
                 'POSTER': poster,
                 'POST_URL': post_url,
@@ -417,8 +438,8 @@ def parse_discussion():
                 'POST_LINK': post_link,
                 'POST_TIME': post_time,
                 'POST_IMG': post_img,
-                'POST_LIKES': None,
-                'POST_SHARES': None,
+                'POST_REACTIONS': post_reactions,
+                'POST_SHARES': post_shares,
                 'POST_COMMENTS': all_comments
             }
             all_posts.append(post)
