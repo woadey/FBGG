@@ -11,9 +11,8 @@ from selenium.common.exceptions import *
 
 # Configure ChromeDriver
 options = Options()
-# options.add_argument("--headless")
-# options.add_argument("--blink-settings=imagesEnabled=false")
-# options.add_argument("--disable-threaded-compositing")
+options.add_argument("--headless")
+options.add_argument("--blink-settings=imagesEnabled=false")
 options.add_argument("--disable-gpu")
 options.add_argument("--disable-notifications")
 options.add_argument("--disable-extensions")
@@ -41,16 +40,16 @@ options.add_argument("--disable-webgl-image-chromium")
 options.add_argument("--num-raster-threads=1")
 options.add_argument("--disable-logging")
 options.add_argument("--incognito")
-options.add_argument("--window-size=1024,768")
 options.add_argument("--log-level=3")
 driver = webdriver.Chrome(options=options)
 
 # Variables
-line_break = "\n-------------------------------------------------------------------------------------------------------"
+line_break = """
+--------------------------------------------------------------------------------------------------------------------------"""
 group_name = "NoGroupNameAcquired"
 folder_path = ""
 group_folder = ""
-url = None
+url = ""
 member_count = -1
 all_members = []
 all_posts = []
@@ -88,49 +87,69 @@ def main():
 
 
 def login():
+    print("""
+                                ███████╗░█████╗░░█████╗░███████╗██████╗░░█████╗░░█████╗░██╗░░██╗
+                                ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██║░██╔╝
+                                █████╗░░███████║██║░░╚═╝█████╗░░██████╦╝██║░░██║██║░░██║█████═╝░
+                                ██╔══╝░░██╔══██║██║░░██╗██╔══╝░░██╔══██╗██║░░██║██║░░██║██╔═██╗░
+                                ██║░░░░░██║░░██║╚█████╔╝███████╗██████╦╝╚█████╔╝╚█████╔╝██║░╚██╗
+                                ╚═╝░░░░░╚═╝░░╚═╝░╚════╝░╚══════╝╚═════╝░░╚════╝░░╚════╝░╚═╝░░╚═╝
+    
+    ░██████╗░██████╗░░█████╗░██╗░░░██╗██████╗░░░░░░░░██████╗░░█████╗░████████╗██╗░░██╗███████╗██████╗░███████╗██████╗░
+    ██╔════╝░██╔══██╗██╔══██╗██║░░░██║██╔══██╗░░░░░░██╔════╝░██╔══██╗╚══██╔══╝██║░░██║██╔════╝██╔══██╗██╔════╝██╔══██╗
+    ██║░░██╗░██████╔╝██║░░██║██║░░░██║██████╔╝█████╗██║░░██╗░███████║░░░██║░░░███████║█████╗░░██████╔╝█████╗░░██████╔╝
+    ██║░░╚██╗██╔══██╗██║░░██║██║░░░██║██╔═══╝░╚════╝██║░░╚██╗██╔══██║░░░██║░░░██╔══██║██╔══╝░░██╔══██╗██╔══╝░░██╔══██╗
+    ╚██████╔╝██║░░██║╚█████╔╝╚██████╔╝██║░░░░░░░░░░░╚██████╔╝██║░░██║░░░██║░░░██║░░██║███████╗██║░░██║███████╗██║░░██║
+    ░╚═════╝░╚═╝░░╚═╝░╚════╝░░╚═════╝░╚═╝░░░░░░░░░░░░╚═════╝░╚═╝░░╚═╝░░░╚═╝░░░╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝
+    
+--------------------------------------------------------------------------------------------------------------------------    
+--------------------------------------------------------------------------------------------------------------------------    
+""")
+    question_prompt("Please confirm 2FA is disabled on your account [y/n] : ")
+    question_prompt("Please confirm you are using Classic Facebook [y/n] : ")
+    email = input("Email or Phone : ")
+    password = input("Password : ")
+    print("Logging in...")
+    print(line_break.strip())
     try:
         driver.get("https://facebook.com")
-        print("Please login normally through facebook." + line_break)
+    except Exception as ex:
+        raise Exception(
+            "Unable to access 'https://facebook.com'... " + str(ex)
+        )
 
-        # TODO DEV CODE
-        ###
-        driver.maximize_window()
-        driver.find_element_by_css_selector("#email").send_keys("sean.smits@gmail.com")
+    try:
+        driver.find_element_by_css_selector("#email").send_keys(email)
         time.sleep(.5)
-        driver.find_element_by_css_selector("#pass").send_keys("4P*bT6PE3Fx23RDU8c2Jd5^pc")
+        driver.find_element_by_css_selector("#pass").send_keys(password)
         time.sleep(.5)
-        driver.find_element_by_css_selector("#loginbutton").click()
-        ###
+        driver.find_element_by_css_selector('#loginbutton').click()
 
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
-        print("Login Successful" + line_break)
-        print("Please navigate to the group you would like to scrape." + line_break)
-
-        # TODO DEV CODE
-        ###
-        # driver.get("https://www.facebook.com/groups/212594349235336/")
-        ###
-
-        WebDriverWait(driver, 300).until(EC.url_contains("groups"))
-        question_prompt("Is this the group you wish to scrape? [y/n] : ")
+        print("Login Successful." + line_break)
     except Exception as ex:
         raise Exception(
-            "ERROR LOGGING IN : " + str(ex)
+            "ERROR LOGGING IN : " + str(ex) + "\n\n Please try again."
         )
+
+    group_url = input("Please enter the group URL you wish to scrape : ")
+    print(line_break.strip())
+    driver.get(group_url)
 
 
 def scrape_about():
     print("Scraping group info...")
     try:
-        driver.find_element_by_link_text("About").click()
+        driver.find_element_by_css_selector('a[title="About"]').click()
+        global url
+        url = driver.current_url.replace("about/", "")
     except Exception as ex:
         raise Exception(
             "Unable to switch to the 'About' tab... " + str(ex)
         )
 
-    global group_name, url, member_count
-    url = driver.current_url
+    global group_name, member_count
     soup = beautify_page()
     headers = soup.select('span._2iem._50f7')
     for head in headers:
@@ -139,14 +158,14 @@ def scrape_about():
             break
     group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
     print("GROUP NAME : " + group_name)
-    print("GROUP URL : " + url.split("about")[0])
     print("TOTAL MEMBERS : " + str(member_count) + line_break)
     save_html(Tab.ABOUT, soup)
 
 
 def scrape_members():
     try:
-        driver.find_element_by_link_text("Members").click()
+        global url
+        driver.get(url + 'members/')
     except Exception as ex:
         raise Exception(
             "Unable to switch to 'Members' tab... " + str(ex)
@@ -163,7 +182,7 @@ def scrape_members():
 
 def scrape_discussion():
     try:
-        driver.find_element_by_link_text("Discussion").click()
+        driver.get(url)
     except Exception as ex:
         raise Exception(
             "Unable to switch to 'Discussion tab... " + str(ex)
@@ -180,11 +199,11 @@ def scrape_discussion():
 
 def beautify_page():
     time.sleep(3)
-    return BeautifulSoup(driver.page_source, "lxml")
+    return BeautifulSoup(driver.page_source.encode('utf-8'), "lxml")
 
 
 def scroll(tab, loading_selector):
-    print("~~SCROLLING~~")
+    print("      ~~SCROLLING~~")
     time.sleep(3)
     while True:
         try:
@@ -209,7 +228,7 @@ def check_if_bottomed(loading_selector):
         driver.find_element_by_css_selector(loading_selector)
         return False
     except NoSuchElementException:
-        print("~~COMPLETED~~")
+        print("      ~~COMPLETED~~")
         return True
     except Exception as ex:
         raise Exception(
@@ -223,8 +242,7 @@ def wait_to_load(tab):
             WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.morePager > div > span > img')))
         except TimeoutException:
-            # Catches bottom in case 'check_if_bottomed()' fails
-            pass
+            print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
@@ -234,8 +252,7 @@ def wait_to_load(tab):
             WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.async_saving > div[data-testid="fbfeed_placeholder_story"]')))
         except TimeoutException:
-            # Catches bottom in case 'check_if_bottomed()' fails
-            pass
+            print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
@@ -245,13 +262,13 @@ def wait_to_load(tab):
 def view_all():
     while True:
         try:
-            wait_to_load(Tab.DISCUSSION)
             view_more = driver.find_element_by_css_selector("a._4sxc._42ft")
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
             driver.execute_script("window.scrollBy(0,250)")
             view_more.click()
-            WebDriverWait(driver, 10).until(EC.invisibility_of_element(view_more))
+            time.sleep(0.1)
         except StaleElementReferenceException:
+            print("Stale element during 'view_all()'...")
             pass
         except NoSuchElementException:
             # print("Completed Expanding")
@@ -266,10 +283,10 @@ def question_prompt(question):
     yes = {'yes', 'y', 'ye', ''}
     no = {'no', 'n'}
     answer = input(question)
-    if answer in yes:
+    if answer.lower() in yes:
         print(line_break.strip())
         return
-    elif answer in no:
+    elif answer.lower() in no:
         print("Please make necessary changes to ensure a 'Yes' answer.")
         question_prompt(question)
     else:
@@ -308,10 +325,6 @@ def open_html(tab):
         file_name = "DiscussionPage.html"
 
     global folder_path
-    # TODO DEV CODE
-    ###
-    # folder_path = "C:\\Users\\sean\\PycharmProjects\\Fun\\FBGG\\Output\\Indiana Bahá'í Summer School\\Page Content\\"
-    ###
     with open(folder_path + file_name, "r", encoding='utf-8') as file:
         contents = file.read()
         return BeautifulSoup(contents, 'lxml')
@@ -360,7 +373,7 @@ def parse_discussion():
     for post in posts_list:
         try:
             try:
-                poster = post.select_one('.fwb > a[title]').get('title') or post.select_one('.fwb > a').text
+                poster = post.select_one('.fwb > a').text
             except AttributeError:
                 poster = None
             try:
