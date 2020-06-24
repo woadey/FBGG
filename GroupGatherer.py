@@ -153,7 +153,7 @@ def scrape_about():
     soup = beautify_page()
     headers = soup.select('span._2iem._50f7')
     for head in headers:
-        if head.text.find("Members ·") == 0:
+        if head.text.find("Members ·") != -1:
             member_count = int(head.text.split()[-1].replace(",", ""))
             break
     group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
