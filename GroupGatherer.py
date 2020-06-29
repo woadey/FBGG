@@ -275,10 +275,13 @@ def view_all():
             break
         except ElementClickInterceptedException as ex:
             global counter
-            counter += 1
             driver.save_screenshot(f"error{counter}.png")
-            driver.find_element_by_css_selector('i._4sxf').click()
+            remove_hover = driver.find_element_by_css_selector("._3mf5._3mg0")
+            driver.execute_script("arguments[0].scrollIntoView(false);", remove_hover)
+            driver.execute_script("window.scrollBy(0,250)")
+            remove_hover.click()
             driver.save_screenshot(f"fix{counter}.png")
+            counter += 1
             print(ex)
             time.sleep(5)
         except Exception as ex:
