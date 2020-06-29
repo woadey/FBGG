@@ -1,6 +1,8 @@
 import time
 import os
 import csv
+from collections import OrderedDict
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -258,7 +260,6 @@ def wait_to_load(tab):
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
 
-counter = 0
 
 def view_all():
     while True:
@@ -273,16 +274,12 @@ def view_all():
         except NoSuchElementException:
             # print("Completed Expanding")
             break
-        except ElementClickInterceptedException as ex:
-            global counter
-            driver.save_screenshot(f"error{counter}.png")
+        except ElementClickInterceptedException:
             remove_hover = driver.find_element_by_css_selector("._3mf5._3mg0")
             driver.execute_script("arguments[0].scrollIntoView(false);", remove_hover)
-            driver.execute_script("window.scrollBy(0,250)")
+            driver.execute_script("window.scrollBy(0,100)")
             remove_hover.click()
-            driver.save_screenshot(f"fix{counter}.png")
-            counter += 1
-            print(ex)
+            print("Element Click is Intercepted...")
             time.sleep(5)
         except Exception as ex:
             raise Exception(
@@ -446,28 +443,26 @@ def parse_discussion():
                 except AttributeError:
                     comment_time = None
                 comment = {
-                    'COMMENTER': commenter,
-                    'COMMENT_CONTENT': comment_content,
-                    'COMMENT_LINK': comment_link,
-                    'COMMENT_IMG': comment_img,
-                    'COMMENT_LIKES': comment_likes,
-                    'COMMENT_TIME': comment_time
+                    'Comment': comment_content,
+                    'By': commenter,
+                    'Likes': comment_likes,
+                    'Time': comment_time,
+                    'Link': comment_link,
+                    'Image': comment_img
                 }
                 all_comments.append(comment)
 
-            post = {
-                'POSTER': poster,
-                'POST_URL': post_url,
-                'POST_CONTENT': post_content,
-                'POST_LINK': post_link,
-                'POST_TIME': post_time,
-                'POST_IMG': post_img,
-                'POST_REACTIONS': post_reactions,
-                'POST_SHARES': post_shares,
-                'POST_COMMENTS': all_comments
-            }
+            post = OrderedDict()
+            post['POSTER'] = poster
+            post['POST_URL'] = post_url
+            post['POST_LINK'] = post_link
+            post['POST_IMG'] = post_img
+            post['POST_TIME'] = post_time
+            post['POST_REACTIONS'] = post_reactions
+            post['POST_SHARES'] = post_shares
+            post['POST_CONTENT'] = post_content
+            post['POST_COMMENTS'] = all_comments
             all_posts.append(post)
-
         except Exception as ex:
             raise Exception(
                 "ERROR ADDING POST : " + str(ex)
@@ -485,21 +480,25 @@ def save_csv(tab):
         file_name = "DiscussionPage.csv"
 
     global all_members, group_folder
-    keys = None
-    rows = None
     try:
-        if tab == Tab.MEMBERS:
-            keys = all_members[0].keys()
-            rows = all_members
-        elif tab == Tab.DISCUSSION:
-            keys = all_posts[0].keys()
-            rows = all_posts
         spreadsheet_folder = group_folder + "Spreadsheets\\"
         os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
         with open(spreadsheet_folder + file_name, 'w', encoding='utf-8') as output_file:
-            dict_writer = csv.DictWriter(output_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(rows)
+            if tab == Tab.MEMBERS:
+                dict_writer = csv.DictWriter(output_file, all_members[0].keys())
+                dict_writer.writeheader()
+                dict_writer.writerows(all_members)
+            elif tab == Tab.DISCUSSION:
+                writer = csv.writer(output_file)
+                writer.writerow(all_posts[0].keys())
+                for post in all_posts:
+                    formatted_row = []
+                    for key, value in post.items():
+                        if key != 'POST_COMMENTS':
+                            formatted_row.append(value)
+                    for comment in post['POST_COMMENTS']:
+                        formatted_row.append(comment)
+                    writer.writerow(formatted_row)
     except Exception as ex:
         raise Exception(
             "ERROR SAVING SPREADSHEETS : " + str(ex)
