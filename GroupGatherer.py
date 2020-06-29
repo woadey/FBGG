@@ -258,6 +258,7 @@ def wait_to_load(tab):
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
 
+counter = 0
 
 def view_all():
     while True:
@@ -269,10 +270,17 @@ def view_all():
             time.sleep(0.1)
         except StaleElementReferenceException:
             print("Stale element during 'view_all()'...")
-            pass
         except NoSuchElementException:
             # print("Completed Expanding")
             break
+        except ElementClickInterceptedException as ex:
+            global counter
+            counter += 1
+            driver.save_screenshot(f"error{counter}.png")
+            driver.find_element_by_css_selector('i._4sxf').click()
+            driver.save_screenshot(f"fix{counter}.png")
+            print(ex)
+            time.sleep(5)
         except Exception as ex:
             raise Exception(
                 "Error Expanding Comments : " + str(ex).strip()
