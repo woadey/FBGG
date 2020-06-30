@@ -2,7 +2,6 @@ import time
 import os
 import csv
 from collections import OrderedDict
-
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -48,10 +47,12 @@ driver = webdriver.Chrome(options=options)
 # Variables
 line_break = """
 --------------------------------------------------------------------------------------------------------------------------"""
-group_name = "NoGroupNameAcquired"
-folder_path = ""
-group_folder = ""
 url = ""
+group_name = "NoGroupNameAcquired"
+pagecontent_folder = ""
+spreadsheet_folder = ""
+error_folder = ""
+error_counter = -1
 member_count = -1
 all_members = []
 all_posts = []
@@ -116,6 +117,7 @@ def login():
     try:
         driver.get("https://facebook.com")
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to access 'https://facebook.com'... " + str(ex)
         )
@@ -131,6 +133,7 @@ def login():
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful." + line_break)
     except Exception as ex:
+        capture_error()
         raise Exception(
             "ERROR LOGGING IN : " + str(ex) + "\n\n Please try again."
         )
@@ -147,6 +150,7 @@ def scrape_about():
         global url
         url = driver.current_url.replace("about/", "")
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to the 'About' tab... " + str(ex)
         )
@@ -161,7 +165,26 @@ def scrape_about():
     group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
     print("GROUP NAME : " + group_name)
     print("TOTAL MEMBERS : " + str(member_count) + line_break)
+    create_files()
     save_html(Tab.ABOUT, soup)
+
+
+def create_files():
+    global group_name, pagecontent_folder, error_folder, spreadsheet_folder
+    output_folder = os.getcwd() + "\\Output\\"
+    os.makedirs(os.path.dirname(output_folder), exist_ok=True)
+
+    group_folder = output_folder + f"{group_name}\\"
+    os.makedirs(os.path.dirname(group_folder), exist_ok=True)
+
+    pagecontent_folder = group_folder + "Page Content\\"
+    os.makedirs(os.path.dirname(pagecontent_folder), exist_ok=True)
+
+    spreadsheet_folder = group_folder + "Spreadsheets\\"
+    os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
+
+    error_folder = group_folder + "Errors\\"
+    os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
 
 
 def scrape_members():
@@ -169,6 +192,7 @@ def scrape_members():
         global url
         driver.get(url + 'members/')
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to 'Members' tab... " + str(ex)
         )
@@ -186,6 +210,7 @@ def scrape_discussion():
     try:
         driver.get(url)
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to 'Discussion tab... " + str(ex)
         )
@@ -217,6 +242,7 @@ def scroll(tab, loading_selector):
                 break
         except TimeoutException:
             # Catches bottom in case 'check_if_bottomed()' fails
+            capture_error()
             print("CHECK_IF_BOTTOMED() FAILED, but this caught it :)")
             break
         except Exception as ex:
@@ -233,6 +259,7 @@ def check_if_bottomed(loading_selector):
         print("      ~~COMPLETED~~")
         return True
     except Exception as ex:
+        capture_error()
         raise Exception(
             "ERROR CHECKING BOTTOM OF PAGE : " + str(ex)
         )
@@ -246,6 +273,7 @@ def wait_to_load(tab):
         except TimeoutException:
             print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
@@ -256,6 +284,7 @@ def wait_to_load(tab):
         except TimeoutException:
             print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
@@ -275,6 +304,7 @@ def view_all():
             # print("Completed Expanding")
             break
         except ElementClickInterceptedException:
+            capture_error()
             remove_hover = driver.find_element_by_css_selector("._3mf5._3mg0")
             driver.execute_script("arguments[0].scrollIntoView(false);", remove_hover)
             driver.execute_script("window.scrollBy(0,100)")
@@ -282,9 +312,16 @@ def view_all():
             print("Element Click is Intercepted...")
             time.sleep(5)
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "Error Expanding Comments : " + str(ex).strip()
             )
+
+
+def capture_error():
+    global error_folder, error_counter
+    error_counter += 1
+    driver.save_screenshot(error_folder + f"Error_{error_counter}")
 
 
 def question_prompt(question):
@@ -310,16 +347,8 @@ def save_html(tab, soup):
     else:
         file_name = "DiscussionPage.html"
 
-    global group_name, folder_path, group_folder
-    current_dir = os.getcwd()
-    output_folder = current_dir + "\\Output\\"
-    os.makedirs(os.path.dirname(output_folder), exist_ok=True)
-    group_folder = output_folder + f"{group_name}\\"
-    os.makedirs(os.path.dirname(group_folder), exist_ok=True)
-    folder_path = group_folder + "Page Content\\"
-    os.makedirs(os.path.dirname(folder_path), exist_ok=True)
-
-    file_path = folder_path + file_name
+    global pagecontent_folder
+    file_path = pagecontent_folder + file_name
     with open(file_path, "w", encoding='utf-8') as file:
         file.write(str(soup))
 
@@ -332,8 +361,8 @@ def open_html(tab):
     else:
         file_name = "DiscussionPage.html"
 
-    global folder_path
-    with open(folder_path + file_name, "r", encoding='utf-8') as file:
+    global pagecontent_folder
+    with open(pagecontent_folder + file_name, "r", encoding='utf-8') as file:
         contents = file.read()
         return BeautifulSoup(contents, 'lxml')
 
@@ -479,10 +508,8 @@ def save_csv(tab):
     else:
         file_name = "DiscussionPage.csv"
 
-    global all_members, group_folder
+    global spreadsheet_folder
     try:
-        spreadsheet_folder = group_folder + "Spreadsheets\\"
-        os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
         with open(spreadsheet_folder + file_name, 'w', encoding='utf-8') as output_file:
             if tab == Tab.MEMBERS:
                 dict_writer = csv.DictWriter(output_file, all_members[0].keys())
