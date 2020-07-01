@@ -41,6 +41,7 @@ options.add_argument("--disable-webgl-image-chromium")
 options.add_argument("--num-raster-threads=1")
 options.add_argument("--disable-logging")
 options.add_argument("--incognito")
+options.add_argument("--window-size=1920,1080")
 options.add_argument("--log-level=3")
 driver = webdriver.Chrome(options=options)
 
@@ -127,13 +128,15 @@ def login():
         time.sleep(.5)
         driver.find_element_by_css_selector("#pass").send_keys(password)
         time.sleep(.5)
-        driver.find_element_by_css_selector('#loginbutton').click()
+        try:
+            driver.find_element_by_css_selector('#loginbutton').click()
+        except NoSuchElementException:
+            driver.find_element_by_css_selector('#u_0_b').click()
 
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful." + line_break)
     except Exception as ex:
-        capture_error()
         raise Exception(
             "ERROR LOGGING IN : " + str(ex) + "\n\n Please try again."
         )
@@ -235,7 +238,7 @@ def scroll(tab, loading_selector):
     while True:
         try:
             if tab is Tab.DISCUSSION:
-                view_all()
+                view_more()
             wait_to_load(tab)
             driver.execute_script("window.scrollBy(0,document.body.scrollHeight)")
             if check_if_bottomed(loading_selector):
@@ -290,12 +293,12 @@ def wait_to_load(tab):
             )
 
 
-def view_all():
+def view_more():
     while True:
         try:
-            view_more = driver.find_element_by_css_selector("a._4sxc._42ft")
+            view_more = driver.find_element_by_css_selector("a._4sxc._42ft, ._5v47.fss")
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
-            driver.execute_script("window.scrollBy(0,250)")
+            # driver.execute_script("window.scrollBy(0,250)")
             view_more.click()
             time.sleep(0.1)
         except StaleElementReferenceException:
@@ -304,13 +307,8 @@ def view_all():
             # print("Completed Expanding")
             break
         except ElementClickInterceptedException:
-            capture_error()
-            remove_hover = driver.find_element_by_css_selector("._3mf5._3mg0")
-            driver.execute_script("arguments[0].scrollIntoView(false);", remove_hover)
-            driver.execute_script("window.scrollBy(0,100)")
-            remove_hover.click()
             print("Element Click is Intercepted...")
-            time.sleep(5)
+            break
         except Exception as ex:
             capture_error()
             raise Exception(
@@ -321,7 +319,7 @@ def view_all():
 def capture_error():
     global error_folder, error_counter
     error_counter += 1
-    driver.save_screenshot(error_folder + f"Error_{error_counter}")
+    driver.save_screenshot(error_folder + f"Error_{error_counter}.png")
 
 
 def question_prompt(question):
