@@ -13,7 +13,7 @@ from selenium.common.exceptions import *
 # Configure ChromeDriver
 options = Options()
 options.add_argument("--headless")
-options.add_argument("--blink-settings=imagesEnabled=false")
+options.add_argument("--blink-sett  ings=imagesEnabled=false")
 options.add_argument("--disable-gpu")
 options.add_argument("--disable-notifications")
 options.add_argument("--disable-extensions")
@@ -43,6 +43,8 @@ options.add_argument("--disable-logging")
 options.add_argument("--incognito")
 options.add_argument("--window-size=1920,1080")
 options.add_argument("--log-level=3")
+# TODO testing
+options.add_argument("--disk-cache-size")
 driver = webdriver.Chrome(options=options)
 
 # Variables
@@ -294,8 +296,13 @@ def wait_to_load(tab):
 
 
 def view_more():
+    view_counter = 0
     while True:
         try:
+            view_counter += 1
+            if view_counter > 100:
+                print("      Temporarily resting...")
+                view_counter = 0
             view_more = driver.find_element_by_css_selector("a._4sxc._42ft, ._5v47.fss")
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
             # driver.execute_script("window.scrollBy(0,250)")
