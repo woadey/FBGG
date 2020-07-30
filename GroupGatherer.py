@@ -133,7 +133,7 @@ def login():
         try:
             driver.find_element_by_css_selector('#loginbutton').click()
         except NoSuchElementException:
-            driver.find_element_by_css_selector('#u_0_b').click()y
+            driver.find_element_by_css_selector('#u_0_b').click()
 
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
