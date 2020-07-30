@@ -13,7 +13,7 @@ from selenium.common.exceptions import *
 # Configure ChromeDriver
 options = Options()
 options.add_argument("--headless")
-options.add_argument("--blink-sett  ings=imagesEnabled=false")
+options.add_argument("--blink-settings=imagesEnabled=false")
 options.add_argument("--disable-gpu")
 options.add_argument("--disable-notifications")
 options.add_argument("--disable-extensions")
