@@ -1,6 +1,7 @@
 import time
 import os
 import csv
+from collections import OrderedDict
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -11,6 +12,8 @@ from selenium.common.exceptions import *
 
 # Configure ChromeDriver
 options = Options()
+options.add_argument("--headless")
+options.add_argument("--blink-settings=imagesEnabled=false")
 options.add_argument("--disable-gpu")
 options.add_argument("--disable-notifications")
 options.add_argument("--disable-extensions")
@@ -38,15 +41,20 @@ options.add_argument("--disable-webgl-image-chromium")
 options.add_argument("--num-raster-threads=1")
 options.add_argument("--disable-logging")
 options.add_argument("--incognito")
+options.add_argument("--window-size=1920,1080")
 options.add_argument("--log-level=3")
+options.add_argument("--disk-cache-size")
 driver = webdriver.Chrome(options=options)
 
 # Variables
-line_break = "\n-------------------------------------------------------------------------------------------------------"
+line_break = """
+--------------------------------------------------------------------------------------------------------------------------"""
+url = ""
 group_name = "NoGroupNameAcquired"
-folder_path = ""
-group_folder = ""
-url = None
+pagecontent_folder = ""
+spreadsheet_folder = ""
+error_folder = ""
+error_counter = -1
 member_count = -1
 all_members = []
 all_posts = []
@@ -84,50 +92,112 @@ def main():
 
 
 def login():
+    print("""
+                                ███████╗░█████╗░░█████╗░███████╗██████╗░░█████╗░░█████╗░██╗░░██╗
+                                ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██║░██╔╝
+                                █████╗░░███████║██║░░╚═╝█████╗░░██████╦╝██║░░██║██║░░██║█████═╝░
+                                ██╔══╝░░██╔══██║██║░░██╗██╔══╝░░██╔══██╗██║░░██║██║░░██║██╔═██╗░
+                                ██║░░░░░██║░░██║╚█████╔╝███████╗██████╦╝╚█████╔╝╚█████╔╝██║░╚██╗
+                                ╚═╝░░░░░╚═╝░░╚═╝░╚════╝░╚══════╝╚═════╝░░╚════╝░░╚════╝░╚═╝░░╚═╝
+    
+    ░██████╗░██████╗░░█████╗░██╗░░░██╗██████╗░░░░░░░░██████╗░░█████╗░████████╗██╗░░██╗███████╗██████╗░███████╗██████╗░
+    ██╔════╝░██╔══██╗██╔══██╗██║░░░██║██╔══██╗░░░░░░██╔════╝░██╔══██╗╚══██╔══╝██║░░██║██╔════╝██╔══██╗██╔════╝██╔══██╗
+    ██║░░██╗░██████╔╝██║░░██║██║░░░██║██████╔╝█████╗██║░░██╗░███████║░░░██║░░░███████║█████╗░░██████╔╝█████╗░░██████╔╝
+    ██║░░╚██╗██╔══██╗██║░░██║██║░░░██║██╔═══╝░╚════╝██║░░╚██╗██╔══██║░░░██║░░░██╔══██║██╔══╝░░██╔══██╗██╔══╝░░██╔══██╗
+    ╚██████╔╝██║░░██║╚█████╔╝╚██████╔╝██║░░░░░░░░░░░╚██████╔╝██║░░██║░░░██║░░░██║░░██║███████╗██║░░██║███████╗██║░░██║
+    ░╚═════╝░╚═╝░░╚═╝░╚════╝░░╚═════╝░╚═╝░░░░░░░░░░░░╚═════╝░╚═╝░░╚═╝░░░╚═╝░░░╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝
+    
+--------------------------------------------------------------------------------------------------------------------------    
+--------------------------------------------------------------------------------------------------------------------------    
+""")
+    question_prompt("Please confirm 2FA is disabled on your account [y/n] : ")
+    question_prompt("Please confirm you are using Classic Facebook [y/n] : ")
+    email = input("Email or Phone : ")
+    password = input("Password : ")
+    print("Logging in...")
+    print(line_break.strip())
     try:
         driver.maximize_window()
         driver.get("https://facebook.com")
-        print("Please login normally through facebook." + line_break)
+    except Exception as ex:
+        capture_error()
+        raise Exception(
+            "Unable to access 'https://facebook.com'... " + str(ex)
+        )
+
+    try:
+        driver.find_element_by_css_selector("#email").send_keys(email)
+        time.sleep(.5)
+        driver.find_element_by_css_selector("#pass").send_keys(password)
+        time.sleep(.5)
+        try:
+            driver.find_element_by_css_selector('#loginbutton').click()
+        except NoSuchElementException:
+            driver.find_element_by_css_selector('#u_0_b').click()y
+
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
-        print("Login Successful" + line_break)
-        print("Please navigate to the group you would like to scrape." + line_break)
-        WebDriverWait(driver, 300).until(EC.url_contains("groups"))
-        question_prompt("Is this the group you wish to scrape? [y/n] : ")
+        print("Login Successful." + line_break)
     except Exception as ex:
         raise Exception(
-            "ERROR LOGGING IN : " + str(ex)
+            "ERROR LOGGING IN : " + str(ex) + "\n\n Please try again."
         )
+
+    group_url = input("Please enter the group URL you wish to scrape : ")
+    print(line_break.strip())
+    driver.get(group_url)
 
 
 def scrape_about():
     print("Scraping group info...")
     try:
-        driver.find_element_by_link_text("About").click()
+        driver.find_element_by_css_selector('a[title="About"]').click()
+        global url
+        url = driver.current_url.replace("about/", "")
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to the 'About' tab... " + str(ex)
         )
 
-    global group_name, url, member_count
-    url = driver.current_url
+    global group_name, member_count
     soup = beautify_page()
     headers = soup.select('span._2iem._50f7')
     for head in headers:
-        if head.text.find("Members ·") == 0:
+        if head.text.find("Members ·") != -1:
             member_count = int(head.text.split()[-1].replace(",", ""))
             break
     group_name = soup.select_one("#leftCol > div >div > div >div > h1 > a").text
     print("GROUP NAME : " + group_name)
-    print("GROUP URL : " + url.split("about")[0])
     print("TOTAL MEMBERS : " + str(member_count) + line_break)
+    create_files()
     save_html(Tab.ABOUT, soup)
+
+
+def create_files():
+    global group_name, pagecontent_folder, error_folder, spreadsheet_folder
+    output_folder = os.getcwd() + "\\Output\\"
+    os.makedirs(os.path.dirname(output_folder), exist_ok=True)
+
+    group_folder = output_folder + f"{group_name}\\"
+    os.makedirs(os.path.dirname(group_folder), exist_ok=True)
+
+    pagecontent_folder = group_folder + "Page Content\\"
+    os.makedirs(os.path.dirname(pagecontent_folder), exist_ok=True)
+
+    spreadsheet_folder = group_folder + "Spreadsheets\\"
+    os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
+
+    error_folder = group_folder + "Errors\\"
+    os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
 
 
 def scrape_members():
     try:
-        driver.find_element_by_link_text("Members").click()
+        global url
+        driver.get(url + 'members/')
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to 'Members' tab... " + str(ex)
         )
@@ -143,8 +213,9 @@ def scrape_members():
 
 def scrape_discussion():
     try:
-        driver.find_element_by_link_text("Discussion").click()
+        driver.get(url)
     except Exception as ex:
+        capture_error()
         raise Exception(
             "Unable to switch to 'Discussion tab... " + str(ex)
         )
@@ -160,22 +231,23 @@ def scrape_discussion():
 
 def beautify_page():
     time.sleep(3)
-    return BeautifulSoup(driver.page_source, "lxml")
+    return BeautifulSoup(driver.page_source.encode('utf-8'), "lxml")
 
 
 def scroll(tab, loading_selector):
-    print("~~SCROLLING~~")
+    print("      ~~SCROLLING~~")
     time.sleep(3)
     while True:
         try:
             if tab is Tab.DISCUSSION:
-                view_all()
+                view_more()
             wait_to_load(tab)
             driver.execute_script("window.scrollBy(0,document.body.scrollHeight)")
             if check_if_bottomed(loading_selector):
                 break
         except TimeoutException:
             # Catches bottom in case 'check_if_bottomed()' fails
+            capture_error()
             print("CHECK_IF_BOTTOMED() FAILED, but this caught it :)")
             break
         except Exception as ex:
@@ -189,9 +261,10 @@ def check_if_bottomed(loading_selector):
         driver.find_element_by_css_selector(loading_selector)
         return False
     except NoSuchElementException:
-        print("~~COMPLETED~~")
+        print("      ~~COMPLETED~~")
         return True
     except Exception as ex:
+        capture_error()
         raise Exception(
             "ERROR CHECKING BOTTOM OF PAGE : " + str(ex)
         )
@@ -203,9 +276,9 @@ def wait_to_load(tab):
             WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.morePager > div > span > img')))
         except TimeoutException:
-            # Catches bottom in case 'check_if_bottomed()' fails
-            pass
+            print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
@@ -214,42 +287,51 @@ def wait_to_load(tab):
             WebDriverWait(driver, 30).until(EC.invisibility_of_element(
                 (By.CSS_SELECTOR, 'div.async_saving > div[data-testid="fbfeed_placeholder_story"]')))
         except TimeoutException:
-            # Catches bottom in case 'check_if_bottomed()' fails
-            pass
+            print("Timed-out during 'wait-to-load()'...")
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "ERROR WAITING TO LOAD PAGE : " + str(ex)
             )
 
 
-def view_all():
+def view_more():
     while True:
         try:
-            wait_to_load(Tab.DISCUSSION)
-            view_more = driver.find_element_by_css_selector("a._4sxc._42ft")
+            view_more = driver.find_element_by_css_selector("a._4sxc._42ft, ._5v47.fss")
             driver.execute_script("arguments[0].scrollIntoView(false);", view_more)
-            driver.execute_script("window.scrollBy(0,250)")
+            # driver.execute_script("window.scrollBy(0,250)")
             view_more.click()
-            WebDriverWait(driver, 10).until(EC.invisibility_of_element(view_more))
+            time.sleep(0.1)
         except StaleElementReferenceException:
-            pass
+            print("Stale element during 'view_all()'...")
         except NoSuchElementException:
             # print("Completed Expanding")
             break
+        except ElementClickInterceptedException:
+            print("Element Click is Intercepted...")
+            break
         except Exception as ex:
+            capture_error()
             raise Exception(
                 "Error Expanding Comments : " + str(ex).strip()
             )
+
+
+def capture_error():
+    global error_folder, error_counter
+    error_counter += 1
+    driver.save_screenshot(error_folder + f"Error_{error_counter}.png")
 
 
 def question_prompt(question):
     yes = {'yes', 'y', 'ye', ''}
     no = {'no', 'n'}
     answer = input(question)
-    if answer in yes:
+    if answer.lower() in yes:
         print(line_break.strip())
         return
-    elif answer in no:
+    elif answer.lower() in no:
         print("Please make necessary changes to ensure a 'Yes' answer.")
         question_prompt(question)
     else:
@@ -265,16 +347,8 @@ def save_html(tab, soup):
     else:
         file_name = "DiscussionPage.html"
 
-    global group_name, folder_path, group_folder
-    current_dir = os.getcwd()
-    output_folder = current_dir + "\\Output\\"
-    os.makedirs(os.path.dirname(output_folder), exist_ok=True)
-    group_folder = output_folder + f"{group_name}\\"
-    os.makedirs(os.path.dirname(group_folder), exist_ok=True)
-    folder_path = group_folder + "Page Content\\"
-    os.makedirs(os.path.dirname(folder_path), exist_ok=True)
-
-    file_path = folder_path + file_name
+    global pagecontent_folder
+    file_path = pagecontent_folder + file_name
     with open(file_path, "w", encoding='utf-8') as file:
         file.write(str(soup))
 
@@ -287,8 +361,8 @@ def open_html(tab):
     else:
         file_name = "DiscussionPage.html"
 
-    global folder_path
-    with open(folder_path + file_name, "r", encoding='utf-8') as file:
+    global pagecontent_folder
+    with open(pagecontent_folder + file_name, "r", encoding='utf-8') as file:
         contents = file.read()
         return BeautifulSoup(contents, 'lxml')
 
@@ -336,7 +410,7 @@ def parse_discussion():
     for post in posts_list:
         try:
             try:
-                poster = post.select_one('.fwb > a[title]').get('title') or post.select_one('.fwb > a').text
+                poster = post.select_one('.fwb > a').text
             except AttributeError:
                 poster = None
             try:
@@ -359,6 +433,17 @@ def parse_discussion():
                 post_img = post.select_one('img[class="scaledImageFitWidth img"]').get('src')
             except AttributeError:
                 post_img = None
+            try:
+                reacts = post.select('._1n9l')
+                post_reactions = 0
+                for react in reacts:
+                    post_reactions += int(react.get('aria-label').split()[0])
+            except AttributeError:
+                post_reactions = 0
+            try:
+                post_shares = int(post.select_one('._3rwx._42ft').text.split()[0])
+            except AttributeError:
+                post_shares = 0
 
             all_comments = []
             for com in post.select('div[aria-label*="Comment"]'):
@@ -387,28 +472,26 @@ def parse_discussion():
                 except AttributeError:
                     comment_time = None
                 comment = {
-                    'COMMENTER': commenter,
-                    'COMMENT_CONTENT': comment_content,
-                    'COMMENT_LINK': comment_link,
-                    'COMMENT_IMG': comment_img,
-                    'COMMENT_LIKES': comment_likes,
-                    'COMMENT_TIME': comment_time
+                    'Comment': comment_content,
+                    'By': commenter,
+                    'Likes': comment_likes,
+                    'Time': comment_time,
+                    'Link': comment_link,
+                    'Image': comment_img
                 }
                 all_comments.append(comment)
-            # TODO add post_likes and post_shares
-            post = {
-                'POSTER': poster,
-                'POST_URL': post_url,
-                'POST_CONTENT': post_content,
-                'POST_LINK': post_link,
-                'POST_TIME': post_time,
-                'POST_IMG': post_img,
-                'POST_LIKES': None,
-                'POST_SHARES': None,
-                'POST_COMMENTS': all_comments
-            }
-            all_posts.append(post)
 
+            post = OrderedDict()
+            post['POSTER'] = poster
+            post['POST_URL'] = post_url
+            post['POST_LINK'] = post_link
+            post['POST_IMG'] = post_img
+            post['POST_TIME'] = post_time
+            post['POST_REACTIONS'] = post_reactions
+            post['POST_SHARES'] = post_shares
+            post['POST_CONTENT'] = post_content
+            post['POST_COMMENTS'] = all_comments
+            all_posts.append(post)
         except Exception as ex:
             raise Exception(
                 "ERROR ADDING POST : " + str(ex)
@@ -425,22 +508,24 @@ def save_csv(tab):
     else:
         file_name = "DiscussionPage.csv"
 
-    global all_members, group_folder
-    keys = None
-    rows = None
+    global spreadsheet_folder
     try:
-        if tab == Tab.MEMBERS:
-            keys = all_members[0].keys()
-            rows = all_members
-        elif tab == Tab.DISCUSSION:
-            keys = all_posts[0].keys()
-            rows = all_posts
-        spreadsheet_folder = group_folder + "Spreadsheets\\"
-        os.makedirs(os.path.dirname(spreadsheet_folder), exist_ok=True)
         with open(spreadsheet_folder + file_name, 'w', encoding='utf-8') as output_file:
-            dict_writer = csv.DictWriter(output_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(rows)
+            if tab == Tab.MEMBERS:
+                dict_writer = csv.DictWriter(output_file, all_members[0].keys())
+                dict_writer.writeheader()
+                dict_writer.writerows(all_members)
+            elif tab == Tab.DISCUSSION:
+                writer = csv.writer(output_file)
+                writer.writerow(all_posts[0].keys())
+                for post in all_posts:
+                    formatted_row = []
+                    for key, value in post.items():
+                        if key != 'POST_COMMENTS':
+                            formatted_row.append(value)
+                    for comment in post['POST_COMMENTS']:
+                        formatted_row.append(comment)
+                    writer.writerow(formatted_row)
     except Exception as ex:
         raise Exception(
             "ERROR SAVING SPREADSHEETS : " + str(ex)
