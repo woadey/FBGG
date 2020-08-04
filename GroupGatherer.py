@@ -47,6 +47,7 @@ options.add_argument("--disk-cache-size")
 driver = webdriver.Chrome(options=options)
 
 # Variables
+two_fa = False
 line_break = """
 --------------------------------------------------------------------------------------------------------------------------"""
 url = ""
@@ -110,14 +111,13 @@ def login():
 --------------------------------------------------------------------------------------------------------------------------    
 --------------------------------------------------------------------------------------------------------------------------    
 """)
-    question_prompt("Please confirm 2FA is disabled on your account [y/n] : ")
-    question_prompt("Please confirm you are using Classic Facebook [y/n] : ")
+    question_prompt("Is 2FA is enabled on your account [y/n] : ", 1)
+    question_prompt("Please confirm you are using Classic Facebook [y/n] : ", 2)
     email = input("Email or Phone : ")
     password = input("Password : ")
     print("Logging in...")
     print(line_break.strip())
     try:
-        driver.maximize_window()
         driver.get("https://facebook.com")
     except Exception as ex:
         capture_error()
@@ -135,6 +135,45 @@ def login():
         except NoSuchElementException:
             driver.find_element_by_css_selector('#u_0_b').click()
 
+        global two_fa
+        if two_fa:
+            flag = True
+            while flag:
+                # Test to see if on correct page
+                code_box = driver.find_element_by_css_selector('#approvals_code')
+                cont_button = driver.find_element_by_css_selector('#checkpointSubmitButton')
+                print('Two-Factor Authentication Required\n'
+                      'You’ve asked us to require a 6-digit login code when anyone tries to access your account from a new '
+                      'device or browser.')
+                login_code = input('When you receive your 6-digit code, enter it to continue: ')
+
+                # # Input Login Code and Continue
+                code_box.send_keys(login_code)
+                time.sleep(1)
+                cont_button.click()
+                time.sleep(2)
+
+                try:
+                    driver.find_element_by_css_selector('#js_1')
+                except NoSuchElementException:
+                    flag = False
+
+            # Remember Browser
+            driver.find_element_by_css_selector('#u_0_3').click()
+            time.sleep(1)
+            driver.find_element_by_css_selector('#checkpointSubmitButton').click()
+            time.sleep(3)
+            try:
+                driver.find_element_by_css_selector('#u_0_9')
+                raise Exception(
+                    'Review Recent Login\n'
+                    'Someone recently tried to log into your account from an unrecognized computer or mobile '
+                    'browser.\nBecause you set up two-factor authentication, your account is temporarily locked.'
+                    + line_break + '\nContact Developer to look more into this issue...' + line_break
+                )
+            except NoSuchElementException:
+                pass
+            print(line_break.strip())
         WebDriverWait(driver, 300).until(
             lambda bs: bs.find_element_by_css_selector('a[title="Profile"]'))
         print("Login Successful." + line_break)
@@ -324,19 +363,23 @@ def capture_error():
     driver.save_screenshot(error_folder + f"Error_{error_counter}.png")
 
 
-def question_prompt(question):
-    yes = {'yes', 'y', 'ye', ''}
+def question_prompt(question, num):
+    yes = {'yes', 'y', 'ye'}
     no = {'no', 'n'}
     answer = input(question)
     if answer.lower() in yes:
+        if num == 1:
+            global two_fa
+            two_fa = True
         print(line_break.strip())
         return
     elif answer.lower() in no:
-        print("Please make necessary changes to ensure a 'Yes' answer.")
-        question_prompt(question)
+        if num == 2:
+            print("Please make necessary changes to ensure a 'Yes' answer.")
+            question_prompt(question, num)
     else:
         print("Please respond with a 'Yes' or 'No'.")
-        question_prompt(question)
+        question_prompt(question, num)
 
 
 def save_html(tab, soup):
